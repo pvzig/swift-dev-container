@@ -128,29 +128,51 @@ install_debian_keyring () {
   fi
 }
 
-
 export DEBIAN_FRONTEND=noninteractive
 
+# shared packages
 check_packages \
     binutils \
     git \
-    gnupg2 \
     libc6-dev \
-    libcurl4 \
-    libcurl4-openssl-dev \
     libedit2 \
-    libgcc-5-dev \
-    libgcc-9-dev \
-    libpython2.7 \
-    libpython3.8 \
     libsqlite3-0 \
-    libstdc++-5-dev \
-    libstdc++-9-dev \
-    libxml2 \
-    libxml2-dev \
-    libz3-dev \
     pkg-config \
     tzdata \
-    unzip \
-    uuid-dev \
     zlib1g-dev
+
+# version specific packages
+# Get the version of Debian
+version=$(cat /etc/debian_version)
+
+if [[ "${version:0:2}" == "12" ]]; then
+    check_packages \
+        libcurl4-openssl-dev \
+        libgcc-9-dev \
+        libpython3.8 \
+        libsqlite3-0 \
+        libstdc++-9-dev \
+        libxml2-dev \
+        libz3-dev \
+        unzip
+elif [[ "${version:0:2}" == "11" ]]; then
+    check_packages \
+        libc6-dev \
+        libcurl4 \
+        libgcc-9-dev \
+        libpython2.7 \
+        libstdc++-9-dev \
+        libxml2 \
+        libz3-dev \
+        uuid-dev
+elif [[ "${version:0:2}" == "10" ]]; then
+    check_packages \
+        libcurl4 \
+        libgcc-5-dev \
+        libpython2.7 \
+        libsqlite3-0 \
+        libstdc++-5-dev \
+        libxml2
+else
+    echo "Unsupported debian version."
+fi
