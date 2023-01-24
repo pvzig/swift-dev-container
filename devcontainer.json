@@ -1,0 +1,4 @@
+{
+	"image": "mcr.microsoft.com/vscode/devcontainers/base:debian-11",
+	"remoteUser": "vscode"
+}
