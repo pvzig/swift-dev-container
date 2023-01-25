@@ -7,6 +7,8 @@
 SWIFT_VERSION="${VERSION:-"latest"}"
 USERNAME="${USERNAME:-"${_REMOTE_USER:-"automatic"}"}"
 
+SWIFT_GPG_KEY_URI="https://swift.org/keys/all-keys.asc"
+
 set -e
 
 # Clean up
@@ -74,21 +76,6 @@ find_version_from_git_tags() {
     echo "${variable_name}=${!variable_name}"
 }
 
-# Get central common setting
-get_common_setting() {
-    if [ "${common_settings_file_loaded}" != "true" ]; then
-        curl -sfL "https://aka.ms/vscode-dev-containers/script-library/settings.env" 2>/dev/null -o /tmp/vsdc-settings.env || echo "Could not download settings file. Skipping."
-        common_settings_file_loaded=true
-    fi
-    if [ -f "/tmp/vsdc-settings.env" ]; then
-        local multi_line=""
-        if [ "$2" = "true" ]; then multi_line="-z"; fi
-        local result="$(grep ${multi_line} -oP "$1=\"?\K[^\"]+" /tmp/vsdc-settings.env | tr -d '\0')"
-        if [ ! -z "${result}" ]; then declare -g $1="${result}"; fi
-    fi
-    echo "$1=${!1}"
-}
-
 apt_get_update()
 {
     if [ "$(find /var/lib/apt/lists/* | wc -l)" = "0" ]; then
@@ -96,37 +83,12 @@ apt_get_update()
         apt-get update -y
     fi
 }
-
 # Checks if packages are installed and installs them if not
 check_packages() {
     if ! dpkg -s "$@" > /dev/null 2>&1; then
         apt_get_update
         apt-get -y install --no-install-recommends "$@"
     fi
-}
-
-gpg_check () {
-  echo "Checking for gpg..."
-  if command -v gpg > /dev/null; then
-    echo "Detected gpg..."
-  else
-    echo -n "Installing gnupg for GPG verification... "
-    apt-get install -y gnupg &> /dev/null
-    echo "done."
-    if [ "$?" -ne "0" ]; then
-      echo "Unable to install GPG! Your base system has a problem; please check your default OS's package repositories because GPG should work."
-      echo "Repository installation aborted."
-      exit 1
-    fi
-  fi
-}
-
-install_debian_keyring () {
-  if [ "${dist}" = "debian" ]; then
-    echo "Installing debian-archive-keyring which is needed for installing "
-    echo "apt-transport-https on many Debian systems."
-    apt-get install -y debian-archive-keyring &> /dev/null
-  fi
 }
 
 export DEBIAN_FRONTEND=noninteractive
@@ -142,7 +104,9 @@ check_packages \
     libsqlite3-0 \
     pkg-config \
     tzdata \
-    zlib1g-dev
+    zlib1g-dev \
+    gnupg2 \
+    ca-certificates
 
 # version specific packages
 # Get the version of Debian
@@ -157,7 +121,6 @@ check_packages \
 # 19.04 disco     buster / sid
 # 18.10 cosmic    buster / sid
 # 18.04 bionic    buster / sid
-
 DEBIAN=$(cat /etc/debian_version):0:2
 PLATFORM=""
 if [[ "${DEBIAN:0:2}" == "12" ]]; then
@@ -200,7 +163,7 @@ fi
 architecture="$(uname -m)"
 if [[ "${architecture}" == "aarch64" ]]; then
     if [[ "${DEBIAN:0:2}" == "10" ]]; then
-        echo "Use Debian 11 or later for arm64."
+        echo "Use Debian 11 or later for aarch64."
         exit 1
     fi
     PLATFORM="${PLATFORM}-${architecture}"
@@ -215,22 +178,35 @@ platform_stripped="$(echo "${PLATFORM}" | tr -d '.')"
 find_version_from_git_tags SWIFT_VERSION "https://github.com/apple/swift" "refs/tags/swift-"
 
 download_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platform_stripped/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${PLATFORM}.tar.gz"
-sig_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platform_stripped/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${PLATFORM}.tar.gz.sig"
 
 # Install Swift
 if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
     echo "Downloading Swift ${SWIFT_VERSION}..."
     set +e
     curl -fsSL -o /tmp/swift.tar.gz "${download_link}"
+    curl -fsSL -o /tmp/swift.tar.gz.sig "${download_link}.sig"
     exit_code=$?
     set -e
     if [ "$exit_code" != "0" ]; then
         echo "(!) Download failed."
         exit 1
     fi
+    # verify gpg signature
+    curl -fsSL "${SWIFT_GPG_KEY_URI}" | gpg --import -
+    gpg --keyserver hkp://keyserver.ubuntu.com --refresh-keys Swift
+    gpg --verify /tmp/swift.tar.gz.sig || (echo "Failed to verify the GPG signature of swift-${SWIFT_VERSION}-RELEASE-${PLATFORM}.tar.gz"; exit 1)
+    # unpack
     tar xzf /tmp/swift.tar.gz -C /usr/local/bin
     # clean up
     rm -rf /tmp/swift.tar.gz
+    rm -rf /tmp/swift.tar.gz.sig
     export PATH=/usr/local/bin/swift-${SWIFT_VERSION}-RELEASE-${PLATFORM}/usr/bin:"${PATH}"
     echo "$(swift --version)"
+else
+    echo "Swift is already installed with version ${SWIFT_VERSION}. Skipping."
 fi
+
+# Clean up
+rm -rf /var/lib/apt/lists/*
+
+echo "Done!"
