@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
----------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------
 # MIT License
 # Docs: https://github.com/pvzig/swift-dev-container/blob/main/README.md
 # Maintainer: The SSWG Working Group
 
-GPG_KEY="swiftlang_repo.gpg.key"
-GPG_KEY_URL="https://archive.swiftlang.xyz/swiftlang_repo.gpg.key"
+SWIFT_VERSION="${VERSION:-"latest"}"
+USERNAME="${USERNAME:-"${_REMOTE_USER:-"automatic"}"}"
 
 set -e
 
@@ -45,9 +45,9 @@ find_version_from_git_tags() {
     local requested_version=${!variable_name}
     if [ "${requested_version}" = "none" ]; then return; fi
     local repository=$2
-    local prefix=${3:-"tags/v"}
+    local prefix=${3:-"refs/tags/swift-"}
     local separator=${4:-"."}
-    local last_part_optional=${5:-"false"}    
+    local last_part_optional=${5:-"true"}
     if [ "$(echo "${requested_version}" | grep -o "." | wc -l)" != "2" ]; then
         local escaped_separator=${separator//./\\.}
         local last_part
@@ -56,8 +56,9 @@ find_version_from_git_tags() {
         else
             last_part="${escaped_separator}[0-9]+"
         fi
-        local regex="${prefix}\\K[0-9]+${escaped_separator}[0-9]+${last_part}$"
-        local version_list="$(git ls-remote --tags ${repository} | grep -oP "${regex}" | tr -d ' ' | tr "${separator}" "." | sort -rV)"
+        local regex="${prefix}\\K[0-9]+${escaped_separator}[0-9]+${last_part}"
+        local version_list="$(git ls-remote --tags ${repository} --match "*RELEASE*" | grep -oP "${regex}" | tr -d ' ' | tr "${separator}" "." | sort -rV)"
+
         if [ "${requested_version}" = "latest" ] || [ "${requested_version}" = "current" ] || [ "${requested_version}" = "lts" ]; then
             declare -g ${variable_name}="$(echo "${version_list}" | head -n 1)"
         else
@@ -133,8 +134,10 @@ export DEBIAN_FRONTEND=noninteractive
 # shared packages
 check_packages \
     binutils \
+    curl \
     git \
     libc6-dev \
+    libncurses6 \
     libedit2 \
     libsqlite3-0 \
     pkg-config \
@@ -143,9 +146,22 @@ check_packages \
 
 # version specific packages
 # Get the version of Debian
-version=$(cat /etc/debian_version)
+# Ubuntu version  Debian version
+# 22.10 kinetic	  bookworm/ sid - 12
+# 22.04 jammy     bookworm/sid
+# 21.10 impish    bullseye/sid - 11
+# 21.04 hirsute   bullseye/sid
+# 20.10 groovy    bullseye/sid
+# 20.04 focal     bullseye/sid
+# 19.10 eoan      buster / sid - 10
+# 19.04 disco     buster / sid
+# 18.10 cosmic    buster / sid
+# 18.04 bionic    buster / sid
 
-if [[ "${version:0:2}" == "12" ]]; then
+DEBIAN=$(cat /etc/debian_version):0:2
+PLATFORM=""
+if [[ "${DEBIAN:0:2}" == "12" ]]; then
+    PLATFORM="ubuntu22.04"
     check_packages \
         libcurl4-openssl-dev \
         libgcc-9-dev \
@@ -155,7 +171,8 @@ if [[ "${version:0:2}" == "12" ]]; then
         libxml2-dev \
         libz3-dev \
         unzip
-elif [[ "${version:0:2}" == "11" ]]; then
+elif [[ "${DEBIAN:0:2}" == "11" ]]; then
+    PLATFORM="ubuntu20.04"
     check_packages \
         libc6-dev \
         libcurl4 \
@@ -165,7 +182,8 @@ elif [[ "${version:0:2}" == "11" ]]; then
         libxml2 \
         libz3-dev \
         uuid-dev
-elif [[ "${version:0:2}" == "10" ]]; then
+elif [[ "${DEBIAN:0:2}" == "10" ]]; then
+    PLATFORM="ubuntu18.04"
     check_packages \
         libcurl4 \
         libgcc-5-dev \
@@ -175,4 +193,44 @@ elif [[ "${version:0:2}" == "10" ]]; then
         libxml2
 else
     echo "Unsupported debian version."
+    exit 1
+fi
+
+# Verify arch/version compatibility
+architecture="$(uname -m)"
+if [[ "${architecture}" == "aarch64" ]]; then
+    if [[ "${DEBIAN:0:2}" == "10" ]]; then
+        echo "Use Debian 11 or later for arm64."
+        exit 1
+    fi
+    PLATFORM="${PLATFORM}-${architecture}"
+elif [[ "${architecture}" == "x86_64" ]]; then
+    echo "Supported architecture ${architecture}."
+else
+    echo "Unsupported architecture "${architecture}"."
+    exit 1
+fi
+platform_stripped="$(echo "${PLATFORM}" | tr -d '.')"
+
+find_version_from_git_tags SWIFT_VERSION "https://github.com/apple/swift" "refs/tags/swift-"
+
+download_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platform_stripped/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${PLATFORM}.tar.gz"
+sig_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platform_stripped/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${PLATFORM}.tar.gz.sig"
+
+# Install Swift
+if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
+    echo "Downloading Swift ${SWIFT_VERSION}..."
+    set +e
+    curl -fsSL -o /tmp/swift.tar.gz "${download_link}"
+    exit_code=$?
+    set -e
+    if [ "$exit_code" != "0" ]; then
+        echo "(!) Download failed."
+        exit 1
+    fi
+    tar xzf /tmp/swift.tar.gz -C /usr/local/bin
+    # clean up
+    rm -rf /tmp/swift.tar.gz
+    export PATH=/usr/local/bin/swift-${SWIFT_VERSION}-RELEASE-${PLATFORM}/usr/bin:"${PATH}"
+    echo "$(swift --version)"
 fi
