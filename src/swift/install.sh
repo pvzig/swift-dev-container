@@ -2,7 +2,7 @@
 # ---------------------------------------------------------------------------------------------------------
 # MIT License
 # Docs: https://github.com/pvzig/swift-dev-container/blob/main/README.md
-# Maintainer: The SSWG Working Group
+# Maintainer: Peter Zignego
 
 SWIFT_VERSION="${VERSION:-"latest"}"
 USERNAME="${USERNAME:-"${_REMOTE_USER:-"automatic"}"}"
