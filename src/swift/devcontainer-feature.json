@@ -1,10 +1,9 @@
 {
 	"id": "swift",
-	"version": "2.0.0",
+	"version": "0.0.1",
 	"name": "Swift",
 	"description": "Install Swift and common tools for developing Swift based applications.",
-	"documentationURL": "https://github.com/devcontainers/features/tree/main/src/swift",
-	"publisher": "Swift Server Work Group",
+	"documentationURL": "https://github.com/pvzig/swift-dev-container/tree/main/src/swift",
 	"options": {
 		"version": {
 			"type": "string",
@@ -20,22 +19,26 @@
 			],
 			"default": "latest",
 			"description": "Select or enter a Swift version to install"
-		},
-		"customizations": {
-			"vscode": {
-				"settings": {
-					"lldb.library": "/usr/lib/liblldb.so"
-				},
-				"extensions": [
-					"sswg.swift-lang"
-				]
+		}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"sswg.swift-lang",
+				"vadimcn.vscode-lldb"
+			],
+			"settings": {
+				"lldb.library": "/usr/lib/liblldb.so"
 			}
-		},
-		"capAdd": [
-			"SYS_PTRACE"
-		],
-		"securityOpt": [
-			"seccomp=unconfined"
-		]
-	}
+		}
+	},
+	"capAdd": [
+		"SYS_PTRACE"
+	],
+	"securityOpt": [
+		"seccomp=unconfined"
+	],
+	"installsAfter": [
+		"ghcr.io/devcontainers/features/common-utils"
+	]
 }
