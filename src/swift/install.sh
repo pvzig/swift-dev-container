@@ -121,7 +121,7 @@ check_packages \
 # 19.04 disco     buster / sid
 # 18.10 cosmic    buster / sid
 # 18.04 bionic    buster / sid
-DEBIAN=$(cat /etc/debian_version):0:2
+DEBIAN=$(cat /etc/debian_version)
 PLATFORM=""
 if [[ "${DEBIAN:0:2}" == "12" ]]; then
     PLATFORM="ubuntu22.04"
