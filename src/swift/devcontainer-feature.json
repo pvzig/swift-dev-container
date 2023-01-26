@@ -1,0 +1,41 @@
+{
+	"id": "swift",
+	"version": "2.0.0",
+	"name": "Swift",
+	"description": "Install Swift and common tools for developing Swift based applications.",
+	"documentationURL": "https://github.com/devcontainers/features/tree/main/src/swift",
+	"publisher": "Swift Server Work Group",
+	"options": {
+		"version": {
+			"type": "string",
+			"proposals": [
+				"latest",
+				"5.6",
+				"5.5",
+				"5.4",
+				"5.3",
+				"5.2",
+				"5.1",
+				"4.2"
+			],
+			"default": "latest",
+			"description": "Select or enter a Swift version to install"
+		},
+		"customizations": {
+			"vscode": {
+				"settings": {
+					"lldb.library": "/usr/lib/liblldb.so"
+				},
+				"extensions": [
+					"sswg.swift-lang"
+				]
+			}
+		},
+		"capAdd": [
+			"SYS_PTRACE"
+		],
+		"securityOpt": [
+			"seccomp=unconfined"
+		]
+	}
+}
