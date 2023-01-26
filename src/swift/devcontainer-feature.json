@@ -3,8 +3,7 @@
 	"version": "2.0.0",
 	"name": "Swift",
 	"description": "Install Swift and common tools for developing Swift based applications.",
-	"documentationURL": "https://github.com/devcontainers/features/tree/main/src/swift",
-	"publisher": "Swift Server Work Group",
+	"documentationURL": "https://github.com/pvzig/swift-dev-container/tree/main/src/swift",
 	"options": {
 		"version": {
 			"type": "string",
