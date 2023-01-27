@@ -1,6 +1,6 @@
 {
 	"id": "swift",
-	"version": "0.0.3",
+	"version": "0.0.4",
 	"name": "Swift",
 	"description": "Install Swift and common tools for developing Swift based applications.",
 	"documentationURL": "https://github.com/pvzig/swift-dev-container/tree/main/src/swift",
@@ -29,6 +29,10 @@
 			}
 		}
 	},
+	"containerEnv": {
+		"SWIFT_ROOT": "/usr/local/bin/swift",
+		"PATH": "/usr/local/bin/swift/usr/bin:${PATH}"
+    },
 	"capAdd": [
 		"SYS_PTRACE"
 	],
