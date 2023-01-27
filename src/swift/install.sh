@@ -5,6 +5,7 @@
 # Maintainer: Peter Zignego
 
 SWIFT_VERSION="${VERSION:-"latest"}"
+SWIFT_ROOT="${SWIFT_ROOT:-"/usr/local/bin/swift"}"
 USERNAME="${USERNAME:-"${_REMOTE_USER:-"automatic"}"}"
 
 SWIFT_GPG_KEY_URI="https://swift.org/keys/all-keys.asc"
@@ -263,6 +264,7 @@ download_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platfo
 
 # Install Swift
 if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
+    mkdir -p "${SWIFT_ROOT}"
     echo "Downloading Swift ${SWIFT_VERSION}..."
     set +e
     curl -fsSL -o /tmp/swift.tar.gz "${download_link}"
@@ -278,11 +280,11 @@ if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VE
     gpg --keyserver hkp://keyserver.ubuntu.com --refresh-keys Swift
     gpg --verify /tmp/swift.tar.gz.sig || (echo "Failed to verify the GPG signature of swift-${SWIFT_VERSION}-RELEASE-${platform}.tar.gz"; exit 1)
     # unpack
-    tar xzf /tmp/swift.tar.gz -C /usr/local/bin
+    tar xzf /tmp/swift.tar.gz -C "${SWIFT_ROOT}" --strip-components 1
     # clean up
     rm -rf /tmp/swift.tar.gz
     rm -rf /tmp/swift.tar.gz.sig
-    export PATH=/usr/local/bin/swift-${SWIFT_VERSION}-RELEASE-${platform}/usr/bin:"${PATH}"
+    export PATH=${SWIFT_ROOT}/usr/bin:${PATH}
     echo "$(swift --version)"
 else
     echo "Swift is already installed with version ${SWIFT_VERSION}. Skipping."
