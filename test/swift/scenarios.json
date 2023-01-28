@@ -3,7 +3,15 @@
         "image": "ubuntu:jammy",
         "features": {
             "swift": {
-                "version": "5.3"
+                "version": "5.7.1"
+            }
+        }
+    },
+    "unsupported_version": {
+        "image": "ubuntu:jammy",
+        "features": {
+            "swift": {
+                "version": "5.6"
             }
         }
     }
