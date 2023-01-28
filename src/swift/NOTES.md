@@ -8,4 +8,8 @@ This Feature works on all of the following officially supported distributions:
 - CentOS 7
 - Amazon Linux 2
 
+and is unsupported but may work on the following distributions:
+- Debian 10
+- Debian 11
+
 `bash` is required to execute the `install.sh` script.

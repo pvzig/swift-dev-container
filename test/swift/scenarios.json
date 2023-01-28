@@ -1,0 +1,10 @@
+{
+    "pinned_version": {
+        "image": "ubuntu:jammy",
+        "features": {
+            "swift": {
+                "version": "5.3"
+            }
+        }
+    }
+}
