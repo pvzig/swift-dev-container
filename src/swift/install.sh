@@ -107,7 +107,20 @@ check_packages_yum() {
     fi
 }
 
-# Ubuntu 18.04, 20.04, 22.04
+# Ubuntu          Debian
+# 22.10 kinetic	  12 bookworm/sid
+# 22.04 jammy     12 bookworm/sid
+# 21.10 impish    11 bullseye/sid
+# 21.04 hirsute   11 bullseye/sid
+# 20.10 groovy    11 bullseye/sid
+# 20.04 focal     11 bullseye/sid
+# 19.10 eoan      10 buster/sid
+# 19.04 disco     10 buster/sid
+# 18.10 cosmic    10 buster/sid
+# 18.04 bionic    10 buster/sid
+
+# Ubuntu 18.04, 20.04, 22.04 (official)
+# Debian 10, 11 (unofficial)
 install_debian_packages() {
     local version=$1
     # Ensure apt is in non-interactive to avoid prompts
@@ -126,7 +139,7 @@ install_debian_packages() {
         gnupg2 \
         ca-certificates
 
-    if [ "${version}" == "22.04" ]; then
+    if [[ "${version}" == "22.04" ]]; then
         check_packages_apt \
             libcurl4-openssl-dev \
             libgcc-9-dev \
@@ -136,7 +149,7 @@ install_debian_packages() {
             libxml2-dev \
             libz3-dev \
             unzip
-    elif [ "${version}" == "20.04" ]; then
+    elif [ "${version}" == "20.04" ] || [ "${version}" == "11" ]; then
         check_packages_apt \
             libc6-dev \
             libcurl4 \
@@ -145,8 +158,9 @@ install_debian_packages() {
             libstdc++-9-dev \
             libxml2 \
             libz3-dev \
-            uuid-dev
-    elif [ "${version}" == "18.04" ]; then
+            uuid-dev \
+            libncurses6
+    elif [[ "${version}" == "18.04" ]]; then
         check_packages_apt \
             libcurl4 \
             libgcc-5-dev \
@@ -154,9 +168,20 @@ install_debian_packages() {
             libsqlite3-0 \
             libstdc++-5-dev \
             libxml2
+    elif [[ "${version}" == "10" ]]; then
+        check_packages_apt \
+            libcurl4 \
+            libpython2.7 \
+            libsqlite3-0 \
+            libxml2 \
+            libncurses5
     else
         echo "Unsupported OS: ${PRETTY_NAME}"
         exit 1
+    fi
+
+    if [ "${version}" == "11" ] || [ "${version}" == "10" ]; then
+        echo "Swift is not officially supported on Debian and may not work as expected."
     fi
 
     # Clean up
@@ -222,7 +247,7 @@ install_centos_packages() {
 # Bring in ID, VERSION_ID 
 . /etc/os-release
 
-if [[ "${ID}" == "ubuntu" ]]; then
+if [ "${ID}" == "ubuntu" ] || [ "${ID}" == "debian" ]; then
     install_debian_packages "${VERSION_ID}"
 elif [[ "${ID}" == "centos" ]]; then
     install_centos_packages "${VERSION_ID}"
@@ -234,13 +259,20 @@ else
 fi
 
 # We use these to construct the download link
-architecture="$(uname -m)"
-platform="${ID}${VERSION_ID}"
-# Special case for Amazon Linux 2...
-if [[ "${ID}" == "amzn" ]]; then
+
+if [[ "${ID}" == "debian" ]]; then
+    if [[ "${VERSION_ID}" == "10" ]]; then
+        platform="ubuntu18.04"
+    elif [[ "${VERSION_ID}" == "11" ]]; then
+        platform="ubuntu20.04"
+    fi
+elif [[ "${ID}" == "amzn" ]]; then
     platform="amazonlinux2"
+else 
+    platform="${ID}${VERSION_ID}"
 fi
 
+architecture="$(uname -m)"
 # Verify architecture compatibility
 if [[ "${architecture}" == "aarch64" ]]; then
     if [ "${platform}" == "ubuntu18.04" ] || [ "${platform}" == "centos7" ]; then
@@ -265,7 +297,7 @@ download_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platfo
 # Install Swift
 if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
     mkdir -p "${SWIFT_ROOT}"
-    echo "Downloading Swift ${SWIFT_VERSION}..."
+    echo "Downloading Swift ${SWIFT_VERSION} from ${download_link}..."
     set +e
     curl -fsSL -o /tmp/swift.tar.gz "${download_link}"
     curl -fsSL -o /tmp/swift.tar.gz.sig "${download_link}.sig"
