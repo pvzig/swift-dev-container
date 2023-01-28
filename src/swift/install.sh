@@ -353,7 +353,9 @@ if [[ "${architecture}" == "aarch64" ]]; then
 fi
 platform_stripped="$(echo "${platform}" | tr -d '.')"
 
-resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}"
+if [[ "${SWIFT_VERSION}" != "latest" ]]; then
+    resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}"
+fi
 
 find_version_from_git_tags SWIFT_VERSION "https://github.com/apple/swift" "refs/tags/swift-"
 
