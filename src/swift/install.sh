@@ -76,7 +76,7 @@ find_version_from_git_tags() {
         exit 1
     fi
 
-    resolve_distribution_swift_version_matrix $SWIFT_VERSION "${platform}" "${architecture}"
+    resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}" "${architecture}"
     echo "${variable_name}=${!variable_name}"
 }
 
