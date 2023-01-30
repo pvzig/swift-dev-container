@@ -374,18 +374,13 @@ if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VE
     swift_webroot="https://download.swift.org"
 
     set -e
-    arch_name="$(dpkg --print-architecture)"
-    case "${arch_name##*-}" in
-        'amd64')
-            os_arch_suffix='';
-            ;;
-        'arm64')
-            os_arch_suffix='-aarch64';
-            ;;
-        *)
-            echo >&2 "error: unsupported architecture: $arch_name"; exit 1
-            ;;
-    esac
+    arch="$(uname -m)"
+    if [[ "${arch}" == "aarch64" ]]; then
+        os_arch_suffix="-aarch64"
+    else 
+        os_arch_suffix=""
+    fi
+
     swift_webdir="${swift_webroot}/${swift_branch}/$(echo ${swift_platform} | tr -d .)${os_arch_suffix}"
     swift_bin_url="${swift_webdir}/${swift_version}/${swift_version}-${swift_platform}${os_arch_suffix}.tar.gz" \
     swift_sig_url="$swift_bin_url.sig" \
