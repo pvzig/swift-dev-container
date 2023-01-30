@@ -5,10 +5,7 @@
 # Maintainer: Peter Zignego
 
 SWIFT_VERSION="${VERSION:-"latest"}"
-SWIFT_ROOT="${SWIFT_ROOT:-"/usr/local/bin/swift"}"
 USERNAME="${USERNAME:-"${_REMOTE_USER:-"automatic"}"}"
-
-SWIFT_GPG_KEY_URI="https://swift.org/keys/all-keys.asc"
 
 set -e
 
@@ -42,6 +39,18 @@ elif [ "${USERNAME}" = "none" ] || ! id -u ${USERNAME} > /dev/null 2>&1; then
     USERNAME=root
 fi
 
+resolve_latest() {
+    local variable_name=$1
+    local requested_version=${!variable_name}
+    if [ "${requested_version}" = "none" ]; then return; fi
+    local repository=$2
+
+    if [[ "${requested_version}" = "latest" ]]; then
+        local version_list="$(git ls-remote --tags ${repository} --match "*RELEASE*" | grep -oP "${regex}" | tr -d ' ' | tr "${separator}" "." | sort -rV)"
+        declare -g ${variable_name}="$(echo "${version_list}" | head -n 1)"
+    fi
+}
+
 # Figure out correct version of a three part version number is not passed
 find_version_from_git_tags() {
     local variable_name=$1
@@ -59,16 +68,13 @@ find_version_from_git_tags() {
         else
             last_part="${escaped_separator}[0-9]+"
         fi
+
         local regex="${prefix}\\K[0-9]+${escaped_separator}[0-9]+${last_part}"
         local version_list="$(git ls-remote --tags ${repository} --match "*RELEASE*" | grep -oP "${regex}" | tr -d ' ' | tr "${separator}" "." | sort -rV)"
 
-        if [ "${requested_version}" = "latest" ] || [ "${requested_version}" = "current" ] || [ "${requested_version}" = "lts" ]; then
-            declare -g ${variable_name}="$(echo "${version_list}" | head -n 1)"
-        else
-            set +e
-            declare -g ${variable_name}="$(echo "${version_list}" | grep -E -m 1 "^${requested_version//./\\.}([\\.\\s]|$)")"
-            set -e
-        fi
+        set +e
+        declare -g ${variable_name}="$(echo "${version_list}" | grep -E -m 1 "^${requested_version//./\\.}([\\.\\s]|$)")"
+        set -e
     fi
     if [ -z "${!variable_name}" ] || ! echo "${version_list}" | grep "^${!variable_name//./\\.}$" > /dev/null 2>&1; then
         echo -e "Invalid ${variable_name} value: ${requested_version}\nValid values:\n${version_list}" >&2
@@ -156,7 +162,7 @@ resolve_distribution_swift_version_matrix() {
 apt_get_update() {
     if [ "$(find /var/lib/apt/lists/* | wc -l)" = "0" ]; then
         echo "Running apt-get update..."
-        apt-get update -y
+        apt-get -q update -y
     fi
 }
 
@@ -171,7 +177,7 @@ yum_update() {
 check_packages_apt() {
     if ! dpkg -s "$@" > /dev/null 2>&1; then
         apt_get_update
-        apt-get -y install --no-install-recommends "$@"
+        apt-get -q install -y --no-install-recommends "$@"
     fi
 }
 
@@ -201,6 +207,7 @@ install_debian_packages() {
     local version=$1
     # Ensure apt is in non-interactive to avoid prompts
     export DEBIAN_FRONTEND=noninteractive
+    export DEBCONF_NONINTERACTIVE_SEEN=true
     # Shared packages
     check_packages_apt \
         binutils \
@@ -335,7 +342,6 @@ else
 fi
 
 # We use these to construct the download link
-architecture="$(uname -m)"
 if [[ "${ID}" == "debian" ]]; then
     if [[ "${VERSION_ID}" == "10" ]]; then
         platform="ubuntu18.04"
@@ -348,42 +354,46 @@ else
     platform="${ID}${VERSION_ID}"
 fi
 
-if [[ "${architecture}" == "aarch64" ]]; then
-    platform="${platform}-${architecture}"
-fi
-platform_stripped="$(echo "${platform}" | tr -d '.')"
-
-if [[ "${SWIFT_VERSION}" != "latest" ]]; then
-    resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}"
-fi
-
+resolve_latest SWIFT_VERSION "https://github.com/apple/swift"
+resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}"
 find_version_from_git_tags SWIFT_VERSION "https://github.com/apple/swift" "refs/tags/swift-"
-
-download_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platform_stripped/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${platform}.tar.gz"
 
 # Install Swift
 if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
-    mkdir -p "${SWIFT_ROOT}"
-    echo "Downloading Swift ${SWIFT_VERSION} from ${download_link} ..."
-    set +e
-    curl -fsSL -o /tmp/swift.tar.gz "${download_link}"
-    curl -fsSL -o /tmp/swift.tar.gz.sig "${download_link}.sig"
-    exit_code=$?
+    # pub   4096R/ED3D1561 2019-03-22 [SC] [expires: 2023-03-23]
+    #       Key fingerprint = A62A E125 BBBF BB96 A6E0  42EC 925C C1CC ED3D 1561
+    # uid                  Swift 5.x Release Signing Key <swift-infrastructure@swift.org
+    swift_signing_key="A62AE125BBBFBB96A6E042EC925CC1CCED3D1561"
+    swift_platform="${platform}"
+    swift_branch="swift-${SWIFT_VERSION}-release"
+    swift_version="swift-${SWIFT_VERSION}-RELEASE"
+    swift_webroot="https://download.swift.org"
+
     set -e
-    if [ "$exit_code" != "0" ]; then
-        echo "Download failed."
-        exit 1
-    fi
-    # verify gpg signature
-    curl -fsSL "${SWIFT_GPG_KEY_URI}" | gpg --import -
-    gpg --keyserver hkp://keyserver.ubuntu.com --refresh-keys Swift
-    gpg --verify /tmp/swift.tar.gz.sig || (echo "Failed to verify the GPG signature of swift-${SWIFT_VERSION}-RELEASE-${platform}.tar.gz"; exit 1)
-    # unpack
-    tar xzf /tmp/swift.tar.gz -C "${SWIFT_ROOT}" --strip-components 1
-    # clean up
-    rm -rf /tmp/swift.tar.gz
-    rm -rf /tmp/swift.tar.gz.sig
-    export PATH=${SWIFT_ROOT}/usr/bin:${PATH}
+    arch_name="$(dpkg --print-architecture)"
+    case "${arch_name##*-}" in
+        'amd64')
+            os_arch_suffix='';
+            ;;
+        'arm64')
+            os_arch_suffix='-aarch64';
+            ;;
+        *)
+            echo >&2 "error: unsupported architecture: $arch_name"; exit 1
+            ;;
+    esac
+    swift_webdir="${swift_webroot}/${swift_branch}/$(echo ${swift_platform} | tr -d .)${os_arch_suffix}"
+    swift_bin_url="${swift_webdir}/${swift_version}/${swift_version}-${swift_platform}${os_arch_suffix}.tar.gz" \
+    swift_sig_url="$swift_bin_url.sig" \
+    # - Download the GPG keys, Swift toolchain, and toolchain signature, and verify.
+    export GNUPGHOME="$(mktemp -d)"
+    curl -fsSL "$swift_bin_url" -o swift.tar.gz "$swift_sig_url" -o swift.tar.gz.sig
+    gpg --batch --quiet --keyserver keyserver.ubuntu.com --recv-keys "$swift_signing_key"
+    gpg --batch --verify swift.tar.gz.sig swift.tar.gz || (echo "Failed to verify the GPG signature of ${swift_version}-${swift_platform}${os_arch_suffix}.tar.gz"; exit 1)
+    # - Unpack the toolchain, set libs permissions, and clean up.
+    tar -xzf swift.tar.gz --directory / --strip-components=1
+    chmod -R o+r /usr/lib/swift
+    rm -rf "$GNUPGHOME" swift.tar.gz.sig swift.tar.gz
     echo "$(swift --version)"
 else
     echo "Swift is already installed with version ${SWIFT_VERSION}. Skipping."

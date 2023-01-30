@@ -1,6 +1,6 @@
 {
 	"id": "swift",
-	"version": "0.0.5",
+	"version": "0.0.6",
 	"name": "Swift",
 	"description": "Install Swift and common tools for developing Swift based applications.",
 	"documentationURL": "https://github.com/pvzig/swift-dev-container/tree/main/src/swift",
@@ -15,7 +15,8 @@
 				"5.3",
 				"5.2",
 				"5.1",
-				"5.0"
+				"5.0",
+				"none"
 			],
 			"default": "latest",
 			"description": "Select or enter a Swift version to install"
@@ -32,10 +33,6 @@
 			}
 		}
 	},
-	"containerEnv": {
-		"SWIFT_ROOT": "/usr/local/bin/swift",
-		"PATH": "/usr/local/bin/swift/usr/bin:${PATH}"
-    },
 	"capAdd": [
 		"SYS_PTRACE"
 	],
