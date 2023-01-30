@@ -77,6 +77,82 @@ find_version_from_git_tags() {
     echo "${variable_name}=${!variable_name}"
 }
 
+# Certain versions of Swift are only supported on certain distributions (see matrix below). 
+# We round up to match the host distro with the closest supported version of Swift.
+
+# |-----------------------------------------x86--------------------------------------------|
+# | Swift Version | Ubuntu 18.04 | Ubuntu 20.04 | Ubuntu 22.04 | CentOS 7 | Amazon Linux 2 |
+# | 5.0           | ✅           | ❌           | ❌           | ❌       | ❌             |
+# | 5.1           | ✅           | ❌           | ❌           | ❌       | ❌             |
+# | 5.2           | ✅           | ❌           | ❌           | ❌       | ❌             |
+# | 5.2.4         | ✅           | ✅           | ❌           | ❌       | ✅             |
+# | 5.2.5         | ✅           | ✅           | ❌           | ✅       | ✅             |
+# | 5.3           | ✅           | ✅           | ❌           | ✅       | ✅             |
+# | 5.4           | ✅           | ✅           | ❌           | ✅       | ✅             |
+# | 5.5           | ✅           | ✅           | ❌           | ✅       | ✅             |
+# | 5.6           | ✅           | ✅           | ❌           | ✅       | ✅             |
+# | 5.7           | ✅           | ✅           | ✅           | ✅       | ✅             |
+# |----------------------------------------------------------------------------------------|
+# |--------------------------------------aarch64-------------------------------------------|
+# | Swift Version | Ubuntu 18.04 | Ubuntu 20.04 | Ubuntu 22.04 | CentOS 7 | Amazon Linux 2 |
+# | 5.0           | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.1           | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.2           | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.2.4         | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.2.5         | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.3           | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.4           | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.5           | ❌           | ❌           | ❌           | ❌       | ❌             |
+# | 5.6           | ❌           | ✅           | ❌           | ❌       | ✅             |
+# | 5.7           | ❌           | ✅           | ✅           | ❌       | ✅             |
+# |----------------------------------------------------------------------------------------|
+resolve_distribution_swift_version_matrix() {
+    local variable_name=$1
+    local requested_version=${!variable_name}
+    local platform=$2
+    major="$(echo "${requested_version}" | grep -oE '^[0-9]+' || echo "0")"
+    minor="$(echo "${requested_version}" | grep -oP '^[0-9]+\.\K[0-9]+' || echo "0")"
+    breakfix="$(echo "${requested_version}" | grep -oP '^[0-9]+\.[0-9]+\.\K[0-9]+' 2>/dev/null || echo "0")"
+
+    if [[ "${platform}" == "centos7" ]]; then
+        if [[ major -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 5 ]]; then
+            declare -g ${variable_name}="5.2.5"
+            echo "Swift only officially supports CentOS 7 for Swift 5.2.5 and later. Using Swift 5.2.5 instead of "${requested_version}"."
+        fi
+    elif [[ "${platform}" == "centos7-aarch64" ]]; then
+        echo "aarch64 is not supported on ${PRETTY_NAME}. Try Ubuntu 20.04, 22.04, or Amazon Linux 2."
+        exit 1
+    elif [[ "${platform}" == "amazonlinux2" ]]; then
+        if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 4 ]]; then
+            declare -g ${variable_name}="5.2.4"
+            echo "Swift only officially supports Amazon Linux 2 for Swift 5.2.4 and later. Using Swift 5.2.4 instead of "${requested_version}"."
+        fi
+    elif [[ "${platform}" == "amazonlinux2-aarch64" ]]; then
+        if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 6 ]]; then
+            declare -g ${variable_name}="5.6"
+            echo "Swift only officially supports the aarch64 architecture on Amazon Linux 2 for Swift 5.6 and later. Using Swift 5.6 instead of "${requested_version}"."
+        fi
+    elif [[ "${platform}" == "ubuntu18.04-aarch64" ]]; then
+        echo "aarch64 is not supported on ${PRETTY_NAME}. Try Ubuntu 20.04, 22.04, or Amazon Linux 2."
+        exit 1
+    elif [[ "${platform}" == "ubuntu20.04" ]]; then
+        if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 4 ]]; then
+            declare -g ${variable_name}="5.2.4"
+            echo "Swift only officially supports Ubuntu 20.04 for Swift 5.2.4 and later. Using Swift 5.2.4 instead of "${requested_version}"."
+        fi
+    elif [[ "${platform}" == "ubuntu20.04-aarch64" ]]; then
+        if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 6 ]]; then
+            declare -g ${variable_name}="5.6"
+            echo "Swift only officially supports the aarch64 architecture on Ubuntu 20.04 for Swift 5.6 and later. Using Swift 5.6 instead of "${requested_version}"."
+        fi
+    elif [ "${platform}" == "ubuntu22.04" ] || [ "${platform}" == "ubuntu22.04-aarch64" ]; then
+        if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 7 ]]; then
+            declare -g ${variable_name}="5.7"
+            echo "Swift only officially supports Ubuntu 22.04 for Swift 5.7 and later. Using Swift 5.7 instead of "${requested_version}"."
+        fi
+    fi
+}
+
 apt_get_update() {
     if [ "$(find /var/lib/apt/lists/* | wc -l)" = "0" ]; then
         echo "Running apt-get update..."
@@ -259,7 +335,7 @@ else
 fi
 
 # We use these to construct the download link
-
+architecture="$(uname -m)"
 if [[ "${ID}" == "debian" ]]; then
     if [[ "${VERSION_ID}" == "10" ]]; then
         platform="ubuntu18.04"
@@ -272,23 +348,14 @@ else
     platform="${ID}${VERSION_ID}"
 fi
 
-architecture="$(uname -m)"
-# Verify architecture compatibility
 if [[ "${architecture}" == "aarch64" ]]; then
-    if [ "${platform}" == "ubuntu18.04" ] || [ "${platform}" == "centos7" ]; then
-        echo "aarch64 is not supported on ${PRETTY_NAME}."
-        exit 1
-    fi
     platform="${platform}-${architecture}"
-    echo "Supported architecture ${architecture}."
-elif  [[ "${architecture}" == "x86_64" ]]; then
-    echo "Supported architecture ${architecture}."
-else
-    echo "Unsupported architecture "${architecture}"."
-    exit 1
 fi
-
 platform_stripped="$(echo "${platform}" | tr -d '.')"
+
+if [[ "${SWIFT_VERSION}" != "latest" ]]; then
+    resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}"
+fi
 
 find_version_from_git_tags SWIFT_VERSION "https://github.com/apple/swift" "refs/tags/swift-"
 
@@ -297,7 +364,7 @@ download_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platfo
 # Install Swift
 if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
     mkdir -p "${SWIFT_ROOT}"
-    echo "Downloading Swift ${SWIFT_VERSION} from ${download_link}..."
+    echo "Downloading Swift ${SWIFT_VERSION} from ${download_link} ..."
     set +e
     curl -fsSL -o /tmp/swift.tar.gz "${download_link}"
     curl -fsSL -o /tmp/swift.tar.gz.sig "${download_link}.sig"
