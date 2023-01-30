@@ -44,12 +44,12 @@ find_version_from_git_tags() {
     local variable_name=$1
     local requested_version=${!variable_name}
     if [ "${requested_version}" = "none" ]; then return; fi
-    local platform=$3
-    local architecture=$4
-    local repository=$5
-    local prefix=${6:-"refs/tags/swift-"}
-    local separator=${7:-"."}
-    local last_part_optional=${8:-"true"}
+    local platform=$2
+    local architecture=$3
+    local repository=$4
+    local prefix=${5:-"refs/tags/swift-"}
+    local separator=${6:-"."}
+    local last_part_optional=${7:-"true"}
     if [ "$(echo "${requested_version}" | grep -o "." | wc -l)" != "2" ]; then
         local escaped_separator=${separator//./\\.}
         local last_part
