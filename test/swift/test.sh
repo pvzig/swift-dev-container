@@ -6,7 +6,7 @@ set -e
 source dev-container-features-test-lib
 
 check "version" swift --version
-check "swift is installed at correct path" test 0 -ne "$(find /usr/local/bin/swift/usr/bin | wc -l)"
+check "swift is installed at correct path" test 0 -ne "$(find /usr/bin/swift | wc -l)"
 
 # Report result
 reportResults

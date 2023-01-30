@@ -5,10 +5,7 @@
 # Maintainer: Peter Zignego
 
 SWIFT_VERSION="${VERSION:-"latest"}"
-SWIFT_ROOT="${SWIFT_ROOT:-"/usr/local/bin/swift"}"
 USERNAME="${USERNAME:-"${_REMOTE_USER:-"automatic"}"}"
-
-SWIFT_GPG_KEY_URI="https://swift.org/keys/all-keys.asc"
 
 set -e
 
@@ -47,10 +44,12 @@ find_version_from_git_tags() {
     local variable_name=$1
     local requested_version=${!variable_name}
     if [ "${requested_version}" = "none" ]; then return; fi
-    local repository=$2
-    local prefix=${3:-"refs/tags/swift-"}
-    local separator=${4:-"."}
-    local last_part_optional=${5:-"true"}
+    local platform=$2
+    local architecture=$3
+    local repository=$4
+    local prefix=${5:-"refs/tags/swift-"}
+    local separator=${6:-"."}
+    local last_part_optional=${7:-"true"}
     if [ "$(echo "${requested_version}" | grep -o "." | wc -l)" != "2" ]; then
         local escaped_separator=${separator//./\\.}
         local last_part
@@ -59,21 +58,25 @@ find_version_from_git_tags() {
         else
             last_part="${escaped_separator}[0-9]+"
         fi
+
         local regex="${prefix}\\K[0-9]+${escaped_separator}[0-9]+${last_part}"
         local version_list="$(git ls-remote --tags ${repository} --match "*RELEASE*" | grep -oP "${regex}" | tr -d ' ' | tr "${separator}" "." | sort -rV)"
 
-        if [ "${requested_version}" = "latest" ] || [ "${requested_version}" = "current" ] || [ "${requested_version}" = "lts" ]; then
+        if [[ "${requested_version}" = "latest" ]]; then
             declare -g ${variable_name}="$(echo "${version_list}" | head -n 1)"
         else
             set +e
             declare -g ${variable_name}="$(echo "${version_list}" | grep -E -m 1 "^${requested_version//./\\.}([\\.\\s]|$)")"
             set -e
-        fi
+        fi 
     fi
+
     if [ -z "${!variable_name}" ] || ! echo "${version_list}" | grep "^${!variable_name//./\\.}$" > /dev/null 2>&1; then
         echo -e "Invalid ${variable_name} value: ${requested_version}\nValid values:\n${version_list}" >&2
         exit 1
     fi
+
+    resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}" "${architecture}"
     echo "${variable_name}=${!variable_name}"
 }
 
@@ -110,42 +113,51 @@ resolve_distribution_swift_version_matrix() {
     local variable_name=$1
     local requested_version=${!variable_name}
     local platform=$2
+    local architecture=$3
+
     major="$(echo "${requested_version}" | grep -oE '^[0-9]+' || echo "0")"
     minor="$(echo "${requested_version}" | grep -oP '^[0-9]+\.\K[0-9]+' || echo "0")"
     breakfix="$(echo "${requested_version}" | grep -oP '^[0-9]+\.[0-9]+\.\K[0-9]+' 2>/dev/null || echo "0")"
 
-    if [[ "${platform}" == "centos7" ]]; then
+    local identifier
+    if [[ "${architecture}" == "aarch64" ]]; then
+        identifier="${platform}-${architecture}"
+    else
+        identifier="${platform}"
+    fi
+
+    if [[ "${identifier}" == "centos7" ]]; then
         if [[ major -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 5 ]]; then
             declare -g ${variable_name}="5.2.5"
             echo "Swift only officially supports CentOS 7 for Swift 5.2.5 and later. Using Swift 5.2.5 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "centos7-aarch64" ]]; then
+    elif [[ "${identifier}" == "centos7-aarch64" ]]; then
         echo "aarch64 is not supported on ${PRETTY_NAME}. Try Ubuntu 20.04, 22.04, or Amazon Linux 2."
         exit 1
-    elif [[ "${platform}" == "amazonlinux2" ]]; then
+    elif [[ "${identifier}" == "amazonlinux2" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 4 ]]; then
             declare -g ${variable_name}="5.2.4"
             echo "Swift only officially supports Amazon Linux 2 for Swift 5.2.4 and later. Using Swift 5.2.4 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "amazonlinux2-aarch64" ]]; then
+    elif [[ "${identifier}" == "amazonlinux2-aarch64" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 6 ]]; then
             declare -g ${variable_name}="5.6"
             echo "Swift only officially supports the aarch64 architecture on Amazon Linux 2 for Swift 5.6 and later. Using Swift 5.6 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "ubuntu18.04-aarch64" ]]; then
+    elif [[ "${identifier}" == "ubuntu18.04-aarch64" ]]; then
         echo "aarch64 is not supported on ${PRETTY_NAME}. Try Ubuntu 20.04, 22.04, or Amazon Linux 2."
         exit 1
-    elif [[ "${platform}" == "ubuntu20.04" ]]; then
+    elif [[ "${identifier}" == "ubuntu20.04" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 4 ]]; then
             declare -g ${variable_name}="5.2.4"
             echo "Swift only officially supports Ubuntu 20.04 for Swift 5.2.4 and later. Using Swift 5.2.4 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "ubuntu20.04-aarch64" ]]; then
+    elif [[ "${identifier}" == "ubuntu20.04-aarch64" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 6 ]]; then
             declare -g ${variable_name}="5.6"
             echo "Swift only officially supports the aarch64 architecture on Ubuntu 20.04 for Swift 5.6 and later. Using Swift 5.6 instead of "${requested_version}"."
         fi
-    elif [ "${platform}" == "ubuntu22.04" ] || [ "${platform}" == "ubuntu22.04-aarch64" ]; then
+    elif [ "${identifier}" == "ubuntu22.04" ] || [ "${identifier}" == "ubuntu22.04-aarch64" ]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 7 ]]; then
             declare -g ${variable_name}="5.7"
             echo "Swift only officially supports Ubuntu 22.04 for Swift 5.7 and later. Using Swift 5.7 instead of "${requested_version}"."
@@ -156,7 +168,7 @@ resolve_distribution_swift_version_matrix() {
 apt_get_update() {
     if [ "$(find /var/lib/apt/lists/* | wc -l)" = "0" ]; then
         echo "Running apt-get update..."
-        apt-get update -y
+        apt-get -q update -y
     fi
 }
 
@@ -171,7 +183,7 @@ yum_update() {
 check_packages_apt() {
     if ! dpkg -s "$@" > /dev/null 2>&1; then
         apt_get_update
-        apt-get -y install --no-install-recommends "$@"
+        apt-get -q install -y --no-install-recommends "$@"
     fi
 }
 
@@ -201,6 +213,7 @@ install_debian_packages() {
     local version=$1
     # Ensure apt is in non-interactive to avoid prompts
     export DEBIAN_FRONTEND=noninteractive
+    export DEBCONF_NONINTERACTIVE_SEEN=true
     # Shared packages
     check_packages_apt \
         binutils \
@@ -335,7 +348,6 @@ else
 fi
 
 # We use these to construct the download link
-architecture="$(uname -m)"
 if [[ "${ID}" == "debian" ]]; then
     if [[ "${VERSION_ID}" == "10" ]]; then
         platform="ubuntu18.04"
@@ -348,42 +360,39 @@ else
     platform="${ID}${VERSION_ID}"
 fi
 
-if [[ "${architecture}" == "aarch64" ]]; then
-    platform="${platform}-${architecture}"
-fi
-platform_stripped="$(echo "${platform}" | tr -d '.')"
-
-if [[ "${SWIFT_VERSION}" != "latest" ]]; then
-    resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}"
-fi
-
-find_version_from_git_tags SWIFT_VERSION "https://github.com/apple/swift" "refs/tags/swift-"
-
-download_link="https://download.swift.org/swift-${SWIFT_VERSION}-release/$platform_stripped/swift-${SWIFT_VERSION}-RELEASE/swift-${SWIFT_VERSION}-RELEASE-${platform}.tar.gz"
+find_version_from_git_tags SWIFT_VERSION "${platform}" "$(uname -m)" "https://github.com/apple/swift" "refs/tags/swift-"
 
 # Install Swift
 if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
-    mkdir -p "${SWIFT_ROOT}"
-    echo "Downloading Swift ${SWIFT_VERSION} from ${download_link} ..."
-    set +e
-    curl -fsSL -o /tmp/swift.tar.gz "${download_link}"
-    curl -fsSL -o /tmp/swift.tar.gz.sig "${download_link}.sig"
-    exit_code=$?
+    # pub   4096R/ED3D1561 2019-03-22 [SC] [expires: 2023-03-23]
+    #       Key fingerprint = A62A E125 BBBF BB96 A6E0  42EC 925C C1CC ED3D 1561
+    # uid                  Swift 5.x Release Signing Key <swift-infrastructure@swift.org
+    swift_signing_key="A62AE125BBBFBB96A6E042EC925CC1CCED3D1561"
+    swift_platform="${platform}"
+    swift_branch="swift-${SWIFT_VERSION}-release"
+    swift_version="swift-${SWIFT_VERSION}-RELEASE"
+    swift_webroot="https://download.swift.org"
+
     set -e
-    if [ "$exit_code" != "0" ]; then
-        echo "Download failed."
-        exit 1
+    arch="$(uname -m)"
+    if [[ "${arch}" == "aarch64" ]]; then
+        os_arch_suffix="-aarch64"
+    else 
+        os_arch_suffix=""
     fi
-    # verify gpg signature
-    curl -fsSL "${SWIFT_GPG_KEY_URI}" | gpg --import -
-    gpg --keyserver hkp://keyserver.ubuntu.com --refresh-keys Swift
-    gpg --verify /tmp/swift.tar.gz.sig || (echo "Failed to verify the GPG signature of swift-${SWIFT_VERSION}-RELEASE-${platform}.tar.gz"; exit 1)
-    # unpack
-    tar xzf /tmp/swift.tar.gz -C "${SWIFT_ROOT}" --strip-components 1
-    # clean up
-    rm -rf /tmp/swift.tar.gz
-    rm -rf /tmp/swift.tar.gz.sig
-    export PATH=${SWIFT_ROOT}/usr/bin:${PATH}
+
+    swift_webdir="${swift_webroot}/${swift_branch}/$(echo ${swift_platform} | tr -d .)${os_arch_suffix}"
+    swift_bin_url="${swift_webdir}/${swift_version}/${swift_version}-${swift_platform}${os_arch_suffix}.tar.gz" \
+    swift_sig_url="$swift_bin_url.sig" \
+    # - Download the GPG keys, Swift toolchain, and toolchain signature, and verify.
+    export GNUPGHOME="$(mktemp -d)"
+    curl -fsSL "$swift_bin_url" -o swift.tar.gz "$swift_sig_url" -o swift.tar.gz.sig
+    gpg --batch --quiet --keyserver keyserver.ubuntu.com --recv-keys "$swift_signing_key"
+    gpg --batch --verify swift.tar.gz.sig swift.tar.gz || (echo "Failed to verify the GPG signature of ${swift_version}-${swift_platform}${os_arch_suffix}.tar.gz"; exit 1)
+    # - Unpack the toolchain, set libs permissions, and clean up.
+    tar -xzf swift.tar.gz --directory / --strip-components=1
+    chmod -R o+r /usr/lib/swift
+    rm -rf "$GNUPGHOME" swift.tar.gz.sig swift.tar.gz
     echo "$(swift --version)"
 else
     echo "Swift is already installed with version ${SWIFT_VERSION}. Skipping."
