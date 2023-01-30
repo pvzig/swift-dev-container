@@ -1,53 +1,69 @@
-# Swift
 
-## Summary
+# Swift (swift)
 
-Develop Swift based applications. Includes everything you need to get up and running.
+Install Swift and common tools for developing Swift based applications.
 
-| Metadata | Value |  
-|----------|-------|
-| *Contributors* | [0xTim](https://github.com/0xTim), [adam-fowler](https://github.com/adam-fowler), [cloudnull](https://github.com/cloudnull) |
-| *Categories* | Languages |
-| *Definition type* | Dockerfile |
-| *Supported architecture(s)* | x86-64, arm64 |
-| *Works in Codespaces* | Yes |
-| *Container host OS support* | Linux, macOS, Windows |
-| *Container OS* | Debian |
-| *Languages, platforms* | Swift |
-
-## Using this definition
-
-While the definition itself works unmodified, you can select the version of Swift the container uses by updating the `VARIANT` arg in the included `devcontainer.json` (and rebuilding if you've already created the container).
+## Example Usage
 
 ```json
-"args": { "VARIANT": "5.7" }
-```
-
-Given how frequently web applications use Node.js for front end code, this container also includes an optional install of Node.js. You can enable installation and change the version of Node.js installed or disable its installation by updating the `args` property in `.devcontainer/devcontainer.json`.
-
-```jsonc
-"args": {
-    "VARIANT": "5.7",
-    "NODE_VERSION": "14" // Set to "none" to skip Node.js installation
+"features": {
+    "ghcr.io/pvzig/swift-dev-container/swift:0": {}
 }
 ```
 
-### Adding the definition to a project or codespace
+## Options
 
-1. If this is your first time using a development container, please see getting started information on [setting up](https://aka.ms/vscode-remote/containers/getting-started) Dev Containers or [creating a codespace](https://aka.ms/ghcs-open-codespace) using GitHub Codespaces.
+| Options Id | Description | Type | Default Value |
+|-----|-----|-----|-----|
+| version | Select or enter a Swift version to install | string | latest |
 
-2. Start VS Code and open your project folder or connect to a codespace.
 
-3. Press <kbd>F1</kbd> select and **Add Dev Container Configuration Files...** command for **Dev Containers** or **Codespaces**.
+## OS Support
 
-   > **Note:** If needed, you can drag-and-drop the `.devcontainer` folder from this sub-folder in a locally cloned copy of this repository into the VS Code file explorer instead of using the command.
+This Feature works on all of the following officially supported distributions:
+- Ubuntu 18.04
+- Ubuntu 20.04
+- Ubuntu 22.04
+- CentOS 7
+- Amazon Linux 2
 
-4. Select this definition. You may also need to select **Show All Definitions...** for it to appear.
+and is unsupported but may work on the following distributions:
+- Debian 10
+- Debian 11
 
-5. Finally, press <kbd>F1</kbd> and run **Dev Containers: Reopen in Container** or **Codespaces: Rebuild Container** to start using the definition.
+Certain versions of Swift are only supported on certain distributions (see matrix below). The `install.sh` script will do it's best to match the host distro with the closest supported version of Swift.
 
-## License
+## x86
+| Swift Version | Ubuntu 18.04 | Ubuntu 20.04 | Ubuntu 22.04 | CentOS 7 | Amazon Linux 2 |
+|---------------|--------------|--------------|--------------|----------|----------------|
+| 5.0           | ✅           | ❌           | ❌           | ❌       | ❌             |
+| 5.1           | ✅           | ❌           | ❌           | ❌       | ❌             |
+| 5.2           | ✅           | ❌           | ❌           | ❌       | ❌             |
+| 5.2.4         | ✅           | ✅           | ❌           | ❌       | ✅             |
+| 5.2.5         | ✅           | ✅           | ❌           | ✅       | ✅             |
+| 5.3           | ✅           | ✅           | ❌           | ✅       | ✅             |
+| 5.4           | ✅           | ✅           | ❌           | ✅       | ✅             |
+| 5.5           | ✅           | ✅           | ❌           | ✅       | ✅             |
+| 5.6           | ✅           | ✅           | ❌           | ✅       | ✅             |
+| 5.7           | ✅           | ✅           | ✅           | ✅       | ✅             |
 
-Copyright (c) Visual Studio Code Swift extension project. All rights reserved.
+## aarch64
+| Swift Version | Ubuntu 18.04 | Ubuntu 20.04 | Ubuntu 22.04 | CentOS 7 | Amazon Linux 2 |
+|---------------|--------------|--------------|--------------|----------|----------------|
+| 5.0           | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.1           | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.2           | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.2.4         | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.2.5         | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.3           | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.4           | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.5           | ❌           | ❌           | ❌           | ❌       | ❌             |
+| 5.6           | ❌           | ✅           | ❌           | ❌       | ✅             |
+| 5.7           | ❌           | ✅           | ✅           | ❌       | ✅             |
 
-Licensed under the MIT License. See [LICENSE](https://github.com/swift-server/swift-dev-container/blob/main/LICENSE).
+`bash` is required to execute the `install.sh` script.
+
+
+---
+
+_Note: This file was auto-generated from the [devcontainer-feature.json](https://github.com/pvzig/swift-dev-container/blob/main/src/swift/devcontainer-feature.json).  Add additional notes to a `NOTES.md`._
