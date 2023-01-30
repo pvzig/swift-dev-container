@@ -14,8 +14,9 @@ and is unsupported but may work on the following distributions:
 
 Certain versions of Swift are only supported on certain distributions (see matrix below). The `install.sh` script will do it's best to match the host distro with the closest supported version of Swift.
 
-|-----------------------------------------x86--------------------------------------------|
+## x86
 | Swift Version | Ubuntu 18.04 | Ubuntu 20.04 | Ubuntu 22.04 | CentOS 7 | Amazon Linux 2 |
+|---------------|--------------|--------------|--------------|----------|----------------|
 | 5.0           | ✅           | ❌           | ❌           | ❌       | ❌             |
 | 5.1           | ✅           | ❌           | ❌           | ❌       | ❌             |
 | 5.2           | ✅           | ❌           | ❌           | ❌       | ❌             |
@@ -26,10 +27,10 @@ Certain versions of Swift are only supported on certain distributions (see matri
 | 5.5           | ✅           | ✅           | ❌           | ✅       | ✅             |
 | 5.6           | ✅           | ✅           | ❌           | ✅       | ✅             |
 | 5.7           | ✅           | ✅           | ✅           | ✅       | ✅             |
-|----------------------------------------------------------------------------------------|
 
-|--------------------------------------aarch64-------------------------------------------|
+## aarch64
 | Swift Version | Ubuntu 18.04 | Ubuntu 20.04 | Ubuntu 22.04 | CentOS 7 | Amazon Linux 2 |
+|---------------|--------------|--------------|--------------|----------|----------------|
 | 5.0           | ❌           | ❌           | ❌           | ❌       | ❌             |
 | 5.1           | ❌           | ❌           | ❌           | ❌       | ❌             |
 | 5.2           | ❌           | ❌           | ❌           | ❌       | ❌             |
@@ -40,6 +41,5 @@ Certain versions of Swift are only supported on certain distributions (see matri
 | 5.5           | ❌           | ❌           | ❌           | ❌       | ❌             |
 | 5.6           | ❌           | ✅           | ❌           | ❌       | ✅             |
 | 5.7           | ❌           | ✅           | ✅           | ❌       | ✅             |
-|----------------------------------------------------------------------------------------|
 
 `bash` is required to execute the `install.sh` script.
