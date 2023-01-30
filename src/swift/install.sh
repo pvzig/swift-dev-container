@@ -39,27 +39,17 @@ elif [ "${USERNAME}" = "none" ] || ! id -u ${USERNAME} > /dev/null 2>&1; then
     USERNAME=root
 fi
 
-resolve_latest() {
-    local variable_name=$1
-    local requested_version=${!variable_name}
-    if [ "${requested_version}" = "none" ]; then return; fi
-    local repository=$2
-
-    if [[ "${requested_version}" = "latest" ]]; then
-        local version_list="$(git ls-remote --tags ${repository} --match "*RELEASE*" | grep -oP "${regex}" | tr -d ' ' | tr "${separator}" "." | sort -rV)"
-        declare -g ${variable_name}="$(echo "${version_list}" | head -n 1)"
-    fi
-}
-
 # Figure out correct version of a three part version number is not passed
 find_version_from_git_tags() {
     local variable_name=$1
     local requested_version=${!variable_name}
     if [ "${requested_version}" = "none" ]; then return; fi
-    local repository=$2
-    local prefix=${3:-"refs/tags/swift-"}
-    local separator=${4:-"."}
-    local last_part_optional=${5:-"true"}
+    local platform=$3
+    local architecture=$4
+    local repository=$5
+    local prefix=${6:-"refs/tags/swift-"}
+    local separator=${7:-"."}
+    local last_part_optional=${8:-"true"}
     if [ "$(echo "${requested_version}" | grep -o "." | wc -l)" != "2" ]; then
         local escaped_separator=${separator//./\\.}
         local last_part
@@ -72,14 +62,21 @@ find_version_from_git_tags() {
         local regex="${prefix}\\K[0-9]+${escaped_separator}[0-9]+${last_part}"
         local version_list="$(git ls-remote --tags ${repository} --match "*RELEASE*" | grep -oP "${regex}" | tr -d ' ' | tr "${separator}" "." | sort -rV)"
 
-        set +e
-        declare -g ${variable_name}="$(echo "${version_list}" | grep -E -m 1 "^${requested_version//./\\.}([\\.\\s]|$)")"
-        set -e
+        if [[ "${requested_version}" = "latest" ]]; then
+            declare -g ${variable_name}="$(echo "${version_list}" | head -n 1)"
+        else
+            set +e
+            declare -g ${variable_name}="$(echo "${version_list}" | grep -E -m 1 "^${requested_version//./\\.}([\\.\\s]|$)")"
+            set -e
+        fi 
     fi
+
     if [ -z "${!variable_name}" ] || ! echo "${version_list}" | grep "^${!variable_name//./\\.}$" > /dev/null 2>&1; then
         echo -e "Invalid ${variable_name} value: ${requested_version}\nValid values:\n${version_list}" >&2
         exit 1
     fi
+
+    resolve_distribution_swift_version_matrix $SWIFT_VERSION "${platform}" "${architecture}"
     echo "${variable_name}=${!variable_name}"
 }
 
@@ -116,42 +113,51 @@ resolve_distribution_swift_version_matrix() {
     local variable_name=$1
     local requested_version=${!variable_name}
     local platform=$2
+    local architecture=$3
+
     major="$(echo "${requested_version}" | grep -oE '^[0-9]+' || echo "0")"
     minor="$(echo "${requested_version}" | grep -oP '^[0-9]+\.\K[0-9]+' || echo "0")"
     breakfix="$(echo "${requested_version}" | grep -oP '^[0-9]+\.[0-9]+\.\K[0-9]+' 2>/dev/null || echo "0")"
 
-    if [[ "${platform}" == "centos7" ]]; then
+    local identifier
+    if [[ "${architecture}" == "aarch64" ]]; then
+        identifier="${platform}-${architecture}"
+    else
+        identifier="${platform}"
+    fi
+
+    if [[ "${identifier}" == "centos7" ]]; then
         if [[ major -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 5 ]]; then
             declare -g ${variable_name}="5.2.5"
             echo "Swift only officially supports CentOS 7 for Swift 5.2.5 and later. Using Swift 5.2.5 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "centos7-aarch64" ]]; then
+    elif [[ "${identifier}" == "centos7-aarch64" ]]; then
         echo "aarch64 is not supported on ${PRETTY_NAME}. Try Ubuntu 20.04, 22.04, or Amazon Linux 2."
         exit 1
-    elif [[ "${platform}" == "amazonlinux2" ]]; then
+    elif [[ "${identifier}" == "amazonlinux2" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 4 ]]; then
             declare -g ${variable_name}="5.2.4"
             echo "Swift only officially supports Amazon Linux 2 for Swift 5.2.4 and later. Using Swift 5.2.4 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "amazonlinux2-aarch64" ]]; then
+    elif [[ "${identifier}" == "amazonlinux2-aarch64" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 6 ]]; then
             declare -g ${variable_name}="5.6"
             echo "Swift only officially supports the aarch64 architecture on Amazon Linux 2 for Swift 5.6 and later. Using Swift 5.6 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "ubuntu18.04-aarch64" ]]; then
+    elif [[ "${identifier}" == "ubuntu18.04-aarch64" ]]; then
         echo "aarch64 is not supported on ${PRETTY_NAME}. Try Ubuntu 20.04, 22.04, or Amazon Linux 2."
         exit 1
-    elif [[ "${platform}" == "ubuntu20.04" ]]; then
+    elif [[ "${identifier}" == "ubuntu20.04" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 3 ]] && [[ "${breakfix}" -lt 4 ]]; then
             declare -g ${variable_name}="5.2.4"
             echo "Swift only officially supports Ubuntu 20.04 for Swift 5.2.4 and later. Using Swift 5.2.4 instead of "${requested_version}"."
         fi
-    elif [[ "${platform}" == "ubuntu20.04-aarch64" ]]; then
+    elif [[ "${identifier}" == "ubuntu20.04-aarch64" ]]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 6 ]]; then
             declare -g ${variable_name}="5.6"
             echo "Swift only officially supports the aarch64 architecture on Ubuntu 20.04 for Swift 5.6 and later. Using Swift 5.6 instead of "${requested_version}"."
         fi
-    elif [ "${platform}" == "ubuntu22.04" ] || [ "${platform}" == "ubuntu22.04-aarch64" ]; then
+    elif [ "${identifier}" == "ubuntu22.04" ] || [ "${identifier}" == "ubuntu22.04-aarch64" ]; then
         if [[ "${major}" -lt 6 ]] && [[ "${minor}" -lt 7 ]]; then
             declare -g ${variable_name}="5.7"
             echo "Swift only officially supports Ubuntu 22.04 for Swift 5.7 and later. Using Swift 5.7 instead of "${requested_version}"."
@@ -354,9 +360,7 @@ else
     platform="${ID}${VERSION_ID}"
 fi
 
-resolve_latest SWIFT_VERSION "https://github.com/apple/swift"
-resolve_distribution_swift_version_matrix SWIFT_VERSION "${platform}"
-find_version_from_git_tags SWIFT_VERSION "https://github.com/apple/swift" "refs/tags/swift-"
+find_version_from_git_tags SWIFT_VERSION "${platform}" "$(uname -m)" "https://github.com/apple/swift" "refs/tags/swift-"
 
 # Install Swift
 if [[ "${SWIFT_VERSION}" != "none" ]] && [[ "$(swift --version)" != *"${SWIFT_VERSION}"* ]]; then
